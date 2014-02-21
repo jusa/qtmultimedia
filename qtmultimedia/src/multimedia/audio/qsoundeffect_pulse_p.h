@@ -62,6 +62,9 @@
 #include <pulse/pulseaudio.h>
 #include "qsamplecache_p.h"
 
+#include <private/qmediaresourcepolicy_p.h>
+#include <private/qmediaresourceset_p.h>
+
 QT_BEGIN_NAMESPACE
 
 class QSoundEffectRef;
@@ -118,7 +121,12 @@ private Q_SLOTS:
     void updateVolume();
     void updateMuted();
 
+    void handleResourcesGranted();
+    void handleResourcesLost();
+    void handleResourcesDenied();
+
 private:
+    void playGranted();
     void playSample();
 
     void emptyStream();
@@ -163,6 +171,16 @@ private:
     QSample *m_sample;
     int m_position;
     QSoundEffectRef *m_ref;
+
+    enum ResourceStatus {
+        NoResources,
+        WaitingResources,
+        GrantedResources,
+        DeniedResources
+    };
+    ResourceStatus m_resourceStatus;
+
+    QMediaPlayerResourceSetInterface *m_resources;
 };
 
 QT_END_NAMESPACE

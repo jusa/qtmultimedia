@@ -61,6 +61,9 @@
 #include <pulse/ext-stream-restore.h>
 #endif
 
+#include <private/qmediaresourcepolicy_p.h>
+#include <private/qmediaresourceset_p.h>
+
 #include <unistd.h>
 
 //#define QT_PA_DEBUG
@@ -366,6 +369,37 @@ QSoundEffectPrivate::QSoundEffectPrivate(QObject* parent):
 {
     m_ref = new QSoundEffectRef(this);
     pa_sample_spec_init(&m_pulseSpec);
+
+    m_resources = QMediaResourcePolicy::createResourceSet<QMediaPlayerResourceSetInterface>();
+    Q_ASSERT(m_resources);
+    connect(m_resources, SIGNAL(resourcesGranted()), SLOT(handleResourcesGranted()));
+    connect(m_resources, SIGNAL(resourcesDenied()), this, SLOT(handleResourcesDenied()), Qt::QueuedConnection);
+    connect(m_resources, SIGNAL(resourcesLost()), SLOT(handleResourcesLost()));
+}
+
+void QSoundEffectPrivate::handleResourcesGranted()
+{
+    qDebug() << Q_FUNC_INFO << "Resources granted, current state " << m_resourceStatus;
+    ResourceStatus old = m_resourceStatus;
+    m_resourceStatus = GrantedResources;
+    if (old == WaitingResources)
+        playGranted();
+}
+
+void QSoundEffectPrivate::handleResourcesLost()
+{
+    m_resourceStatus = NoResources;
+    qDebug() << Q_FUNC_INFO << "Resources lost, current state " << m_resourceStatus;
+    // If we lose resources, stop current playback
+    stop();
+}
+
+void QSoundEffectPrivate::handleResourcesDenied()
+{
+    m_resourceStatus = DeniedResources;
+    qDebug() << Q_FUNC_INFO << "Resources denied, current state " << m_resourceStatus;
+    // If we are denied resources, stop
+    stop();
 }
 
 void QSoundEffectPrivate::release()
@@ -411,6 +445,8 @@ void QSoundEffectPrivate::setCategory(const QString &category)
 
 QSoundEffectPrivate::~QSoundEffectPrivate()
 {
+    QMediaResourcePolicy::destroyResourceSet(m_resources);
+    m_resources = 0;
     m_ref->release();
 }
 
@@ -595,6 +631,16 @@ void QSoundEffectPrivate::setLoopsRemaining(int loopsRemaining)
 }
 
 void QSoundEffectPrivate::play()
+{
+    if (m_resourceStatus == GrantedResources)
+        playGranted();
+    else {
+        m_resourceStatus = WaitingResources;
+        m_resources->acquire();
+    }
+}
+
+void QSoundEffectPrivate::playGranted()
 {
 #ifdef QT_PA_DEBUG
     qDebug() << this << "play";
