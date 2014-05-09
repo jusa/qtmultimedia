@@ -366,6 +366,9 @@ QSoundEffectPrivate::QSoundEffectPrivate(QObject* parent):
     m_reloadCategory(false),
     m_sample(0),
     m_position(0)
+#ifdef Q_WS_MAEMO_6
+    , m_customVolume(false)
+#endif
 {
     m_ref = new QSoundEffectRef(this);
     pa_sample_spec_init(&m_pulseSpec);
@@ -535,6 +538,9 @@ int QSoundEffectPrivate::volume() const
 
 void QSoundEffectPrivate::setVolume(int volume)
 {
+#ifdef Q_WS_MAEMO_6
+    m_customVolume = true;
+#endif
     m_volume = volume;
     emit volumeChanged();
     updateVolume();
@@ -544,6 +550,10 @@ void QSoundEffectPrivate::updateVolume()
 {
     if (m_sinkInputId < 0)
         return;
+#ifdef Q_WS_MAEMO_6
+    if (!m_customVolume)
+        return;
+#endif
     PulseDaemonLocker locker;
     pa_cvolume volume;
     volume.channels = m_pulseSpec.channels;

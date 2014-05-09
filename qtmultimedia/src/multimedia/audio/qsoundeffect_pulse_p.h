@@ -181,6 +181,10 @@ private:
     ResourceStatus m_resourceStatus;
 
     QMediaPlayerResourceSetInterface *m_resources;
+
+#ifdef Q_WS_MAEMO_6
+    bool m_customVolume;
+#endif
 };
 
 QT_END_NAMESPACE
