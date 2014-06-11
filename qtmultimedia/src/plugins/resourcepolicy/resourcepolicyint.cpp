@@ -73,6 +73,8 @@ ResourcePolicyInt::ResourcePolicyInt(QObject *parent)
             this, SLOT(handleResourcesGranted()));
     connect(m_resourceSet, SIGNAL(resourcesDenied()),
             this, SLOT(handleResourcesDenied()));
+    connect(m_resourceSet, SIGNAL(resourcesReleased()),
+            this, SLOT(handleResourcesReleased()));
     connect(m_resourceSet, SIGNAL(lostResources()),
             this, SLOT(handleResourcesLost()));
     connect(m_resourceSet, SIGNAL(resourcesReleasedByManager()),
@@ -284,6 +286,23 @@ void ResourcePolicyInt::handleResourcesDenied()
             emit i.value().client->resourcesDenied();
         }
         // Do we need to act for clients that are in granted state?
+        ++i;
+    }
+}
+
+void ResourcePolicyInt::handleResourcesReleased()
+{
+    m_status = Initial;
+    m_acquired = 0;
+    QMap<const ResourcePolicyImpl*, clientEntry>::iterator i = m_clients.begin();
+    while (i != m_clients.end()) {
+        if (i.value().status == GrantedResource) {
+#ifdef RESOURCE_DEBUG
+            qDebug() << "##### " << i.value().id << ": HANDLE RELEASED, acquired (" << m_acquired << ") emitting resourcesReleased()";
+#endif
+            i.value().status = Initial;
+            emit i.value().client->resourcesReleased();
+        }
         ++i;
     }
 }

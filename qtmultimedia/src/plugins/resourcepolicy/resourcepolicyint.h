@@ -86,6 +86,7 @@ public:
 private slots:
     void handleResourcesGranted();
     void handleResourcesDenied();
+    void handleResourcesReleased();
     void handleResourcesLost();
     void handleResourcesReleasedByManager();
 
