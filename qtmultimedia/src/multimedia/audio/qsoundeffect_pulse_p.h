@@ -121,12 +121,10 @@ private Q_SLOTS:
     void updateVolume();
     void updateMuted();
 
-    void handleResourcesGranted();
-    void handleResourcesLost();
-    void handleResourcesDenied();
+    void handleAvailabilityChanged(bool available);
 
 private:
-    void playGranted();
+    void playAvailable();
     void playSample();
 
     void emptyStream();
@@ -179,6 +177,7 @@ private:
         DeniedResources
     };
     ResourceStatus m_resourceStatus;
+    bool m_resourcesAvailable;
 
     QMediaPlayerResourceSetInterface *m_resources;
 

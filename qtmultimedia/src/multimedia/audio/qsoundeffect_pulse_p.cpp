@@ -365,7 +365,8 @@ QSoundEffectPrivate::QSoundEffectPrivate(QObject* parent):
     m_runningCount(0),
     m_reloadCategory(false),
     m_sample(0),
-    m_position(0)
+    m_position(0),
+    m_resourcesAvailable(false)
 #if defined(Q_WS_MAEMO_6) || defined(NEMO_AUDIO)
     , m_customVolume(false)
 #endif
@@ -375,34 +376,16 @@ QSoundEffectPrivate::QSoundEffectPrivate(QObject* parent):
 
     m_resources = QMediaResourcePolicy::createResourceSet<QMediaPlayerResourceSetInterface>();
     Q_ASSERT(m_resources);
-    connect(m_resources, SIGNAL(resourcesGranted()), SLOT(handleResourcesGranted()));
-    connect(m_resources, SIGNAL(resourcesDenied()), this, SLOT(handleResourcesDenied()), Qt::QueuedConnection);
-    connect(m_resources, SIGNAL(resourcesLost()), SLOT(handleResourcesLost()));
+    m_resourcesAvailable = m_resources->isAvailable();
+    connect(m_resources, SIGNAL(availabilityChanged(bool)), SLOT(handleAvailabilityChanged(bool)));
 }
 
-void QSoundEffectPrivate::handleResourcesGranted()
+void QSoundEffectPrivate::handleAvailabilityChanged(bool available)
 {
-    qDebug() << Q_FUNC_INFO << "Resources granted, current state " << m_resourceStatus;
-    ResourceStatus old = m_resourceStatus;
-    m_resourceStatus = GrantedResources;
-    if (old == WaitingResources)
-        playGranted();
-}
-
-void QSoundEffectPrivate::handleResourcesLost()
-{
-    m_resourceStatus = NoResources;
-    qDebug() << Q_FUNC_INFO << "Resources lost, current state " << m_resourceStatus;
-    // If we lose resources, stop current playback
-    stop();
-}
-
-void QSoundEffectPrivate::handleResourcesDenied()
-{
-    m_resourceStatus = DeniedResources;
-    qDebug() << Q_FUNC_INFO << "Resources denied, current state " << m_resourceStatus;
-    // If we are denied resources, stop
-    stop();
+    m_resourcesAvailable = available;
+    qDebug() << Q_FUNC_INFO << "Resource availability changed " << m_resourcesAvailable;
+    if (!m_resourcesAvailable)
+        stop();
 }
 
 void QSoundEffectPrivate::release()
@@ -642,15 +625,13 @@ void QSoundEffectPrivate::setLoopsRemaining(int loopsRemaining)
 
 void QSoundEffectPrivate::play()
 {
-    if (m_resourceStatus == GrantedResources)
-        playGranted();
-    else {
-        m_resourceStatus = WaitingResources;
-        m_resources->acquire();
-    }
+    if (!m_resourcesAvailable)
+        return;
+
+    playAvailable();
 }
 
-void QSoundEffectPrivate::playGranted()
+void QSoundEffectPrivate::playAvailable()
 {
 #ifdef QT_PA_DEBUG
     qDebug() << this << "play";
