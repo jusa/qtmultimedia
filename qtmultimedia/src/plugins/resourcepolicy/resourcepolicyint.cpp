@@ -76,7 +76,7 @@ ResourcePolicyInt::ResourcePolicyInt(QObject *parent)
     connect(m_resourceSet, SIGNAL(lostResources()),
             this, SLOT(handleResourcesLost()));
     connect(m_resourceSet, SIGNAL(resourcesReleasedByManager()),
-            this, SLOT(handleResourcesLost()));
+            this, SLOT(handleResourcesReleasedByManager()));
 }
 
 ResourcePolicyInt::~ResourcePolicyInt()
@@ -290,18 +290,39 @@ void ResourcePolicyInt::handleResourcesDenied()
 
 void ResourcePolicyInt::handleResourcesLost()
 {
-    if (m_status != Initial) {
-        m_status = Initial;
-    }
+    // If resources were granted switch to acquiring state,
+    // so that if the resources are freed elsewhere we
+    // will acquire them again properly.
+    if (m_status == GrantedResource)
+        m_status = RequestedResource;
 
     m_acquired = 0;
-    m_resourceSet->release();
+
+    QMap<const ResourcePolicyImpl*, clientEntry>::iterator i = m_clients.begin();
+    while (i != m_clients.end()) {
+        if (i.value().status == GrantedResource) {
+#ifdef RESOURCE_DEBUG
+            qDebug() << "##### " << i.value().id << ": HANDLE LOST, acquired (" << m_acquired << ") emitting resourcesLost()";
+#endif
+            i.value().status = RequestedResource;
+            emit i.value().client->resourcesLost();
+        }
+        ++i;
+    }
+}
+
+void ResourcePolicyInt::handleResourcesReleasedByManager()
+{
+    if (m_status != Initial)
+        m_status = Initial;
+
+    m_acquired = 0;
 
     QMap<const ResourcePolicyImpl*, clientEntry>::iterator i = m_clients.begin();
     while (i != m_clients.end()) {
         if (i.value().status != Initial) {
 #ifdef RESOURCE_DEBUG
-            qDebug() << "##### " << i.value().id << ": HANDLE LOST, acquired (" << m_acquired << ") emitting resourcesLost()";
+            qDebug() << "##### " << i.value().id << ": HANDLE RELEASEDBYMANAGER, acquired (" << m_acquired << ") emitting resourcesLost()";
 #endif
             i.value().status = Initial;
             emit i.value().client->resourcesLost();

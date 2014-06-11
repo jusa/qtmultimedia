@@ -87,6 +87,7 @@ private slots:
     void handleResourcesGranted();
     void handleResourcesDenied();
     void handleResourcesLost();
+    void handleResourcesReleasedByManager();
 
 private:
     QMap<const ResourcePolicyImpl*, clientEntry> m_clients;
