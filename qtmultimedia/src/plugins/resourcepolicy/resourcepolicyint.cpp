@@ -57,17 +57,11 @@ ResourcePolicyInt::ResourcePolicyInt(QObject *parent)
     , m_acquired(0)
     , m_status(Initial)
     , m_video(0)
+    , m_available(false)
     , m_resourceSet(0)
 {
     m_resourceSet = new ResourcePolicy::ResourceSet("player", this);
     m_resourceSet->setAlwaysReply();
-
-    ResourcePolicy::AudioResource *audioResource = new ResourcePolicy::AudioResource("player");
-    audioResource->setProcessID(QCoreApplication::applicationPid());
-    audioResource->setStreamTag("media.name", "*");
-    m_resourceSet->addResourceObject(audioResource);
-
-    m_resourceSet->update();
 
     connect(m_resourceSet, SIGNAL(resourcesGranted(const QList<ResourcePolicy::ResourceType>)),
             this, SLOT(handleResourcesGranted()));
@@ -79,6 +73,16 @@ ResourcePolicyInt::ResourcePolicyInt(QObject *parent)
             this, SLOT(handleResourcesLost()));
     connect(m_resourceSet, SIGNAL(resourcesReleasedByManager()),
             this, SLOT(handleResourcesReleasedByManager()));
+
+    connect(m_resourceSet, SIGNAL(resourcesBecameAvailable(const QList<ResourcePolicy::ResourceType>)),
+            this, SLOT(handleResourcesBecameAvailable(const QList<ResourcePolicy::ResourceType>)));
+
+    ResourcePolicy::AudioResource *audioResource = new ResourcePolicy::AudioResource("player");
+
+    audioResource->setProcessID(QCoreApplication::applicationPid());
+    audioResource->setStreamTag("media.name", "*");
+    m_resourceSet->addResourceObject(audioResource);
+    m_resourceSet->update();
 }
 
 ResourcePolicyInt::~ResourcePolicyInt()
@@ -250,9 +254,10 @@ bool ResourcePolicyInt::isGranted(const ResourcePolicyImpl *client) const
 
 bool ResourcePolicyInt::isAvailable() const
 {
-    // TODO: is this used? what is it for?
-    qWarning() << Q_FUNC_INFO << "Stub";
-    return true;
+#ifdef RESOURCE_DEBUG
+            qDebug() << "##### isAvailable " << m_available;
+#endif
+    return m_available;
 }
 
 void ResourcePolicyInt::handleResourcesGranted()
@@ -346,6 +351,35 @@ void ResourcePolicyInt::handleResourcesReleasedByManager()
             i.value().status = Initial;
             emit i.value().client->resourcesLost();
         }
+        ++i;
+    }
+}
+
+void ResourcePolicyInt::handleResourcesBecameAvailable(const QList<ResourcePolicy::ResourceType> &resources)
+{
+    bool available = false;
+
+    for (int i = 0; i < resources.size(); ++i) {
+        if (resources.at(i) == ResourcePolicy::AudioPlaybackType)
+            available = true;
+    }
+
+    availabilityChanged(available);
+}
+
+void ResourcePolicyInt::availabilityChanged(bool available)
+{
+    if (available == m_available)
+        return;
+
+    m_available = available;
+
+    QMap<const ResourcePolicyImpl*, clientEntry>::const_iterator i = m_clients.constBegin();
+    while (i != m_clients.constEnd()) {
+#ifdef RESOURCE_DEBUG
+        qDebug() << "##### " << i.value().id << ": emitting availabilityChanged(" << m_available << ")";
+#endif
+        emit i.value().client->availabilityChanged(m_available);
         ++i;
     }
 }
