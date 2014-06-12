@@ -178,8 +178,8 @@ QPulseAudioOutput::QPulseAudioOutput(const QByteArray &device)
 
 QPulseAudioOutput::~QPulseAudioOutput()
 {
-    QMediaResourcePolicy::destroyResourceSet(m_resources);
     close();
+    QMediaResourcePolicy::destroyResourceSet(m_resources);
     disconnect(m_tickTimer, SIGNAL(timeout()));
     QCoreApplication::processEvents();
 }
