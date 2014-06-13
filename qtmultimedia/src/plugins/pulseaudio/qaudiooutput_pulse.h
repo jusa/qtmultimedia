@@ -112,12 +112,16 @@ private:
     qint64 write(const char *data, qint64 len);
     void internalSuspend();
 
+    void restartReleaseTimer();
+    void stopReleaseTimer();
+
 private Q_SLOTS:
     void userFeed();
     void handleResourcesGranted();
     void handleResourcesLost();
     void handleResourcesDenied();
 
+    void handleRelease();
 
 private:
     QByteArray m_device;
@@ -150,6 +154,7 @@ private:
     pa_cvolume m_chVolume;
     pa_sample_spec m_spec;
     QMediaPlayerResourceSetInterface *m_resources;
+    QTimer *m_releaseTimer;
 };
 
 class OutputPrivate : public QIODevice

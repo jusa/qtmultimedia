@@ -61,6 +61,9 @@ const int LowLatencyBufferSizeMs = 40;
 
 #define LOW_LATENCY_CATEGORY_NAME "game"
 
+// 2 second timeout for releasing resources.
+#define RELEASE_TIMER_TIMEOUT (1000 * 2)
+
 static void  outputStreamWriteCallback(pa_stream *stream, size_t length, void *userdata)
 {
     Q_UNUSED(stream);
@@ -174,10 +177,15 @@ QPulseAudioOutput::QPulseAudioOutput(const QByteArray &device)
     connect(m_resources, SIGNAL(resourcesDenied()), this, SLOT(handleResourcesDenied()), Qt::QueuedConnection);
     connect(m_resources, SIGNAL(resourcesLost()), SLOT(handleResourcesLost()));
     connect(m_tickTimer, SIGNAL(timeout()), SLOT(userFeed()));
+
+    m_releaseTimer = new QTimer(this);
+    m_releaseTimer->setSingleShot(true);
+    connect(m_releaseTimer, SIGNAL(timeout()), this, SLOT(handleRelease()));
 }
 
 QPulseAudioOutput::~QPulseAudioOutput()
 {
+    stopReleaseTimer();
     close();
     m_resources->release();
     disconnect(m_tickTimer, SIGNAL(timeout()));
@@ -233,6 +241,8 @@ void QPulseAudioOutput::start(QIODevice *device)
 
 QIODevice *QPulseAudioOutput::start()
 {
+    stopReleaseTimer();
+
     if (m_deviceState != QAudio::StoppedState)
         m_deviceState = QAudio::StoppedState;
 
@@ -499,7 +509,7 @@ void QPulseAudioOutput::stop()
     m_deviceState = QAudio::StoppedState;
     m_wantedState = QAudio::StoppedState;
     close();
-    m_resources->release();
+    restartReleaseTimer();
     emit stateChanged(m_deviceState);
 }
 
@@ -552,6 +562,9 @@ qint64 QPulseAudioOutput::processedUSecs() const
 void QPulseAudioOutput::resume()
 {
     if (m_deviceState == QAudio::SuspendedState) {
+        stopReleaseTimer();
+        m_resources->acquire();
+
         m_resuming = true;
 
         QPulseAudioEngine *pulseEngine = QPulseAudioEngine::instance();
@@ -597,7 +610,7 @@ QAudioFormat QPulseAudioOutput::format() const
 void QPulseAudioOutput::suspend()
 {
     m_wantedState = QAudio::SuspendedState;
-    m_resources->release();
+    restartReleaseTimer();
     internalSuspend();
 }
 
@@ -747,6 +760,26 @@ void QPulseAudioOutput::handleResourcesDenied()
         internalSuspend();
 }
 
+void QPulseAudioOutput::restartReleaseTimer()
+{
+    stopReleaseTimer();
+    m_releaseTimer->start(RELEASE_TIMER_TIMEOUT);
+}
+
+void QPulseAudioOutput::stopReleaseTimer()
+{
+    m_releaseTimer->stop();
+}
+
+void QPulseAudioOutput::handleRelease()
+{
+    if (m_deviceState != QAudio::ActiveState) {
+#ifdef DEBUG_RESOURCE
+        qDebug() << "handleRelease currentState " << m_deviceState;
+#endif
+        m_resources->release();
+    }
+}
 
 QT_END_NAMESPACE
 
