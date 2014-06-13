@@ -179,9 +179,10 @@ QPulseAudioOutput::QPulseAudioOutput(const QByteArray &device)
 QPulseAudioOutput::~QPulseAudioOutput()
 {
     close();
-    QMediaResourcePolicy::destroyResourceSet(m_resources);
+    m_resources->release();
     disconnect(m_tickTimer, SIGNAL(timeout()));
     QCoreApplication::processEvents();
+    QMediaResourcePolicy::destroyResourceSet(m_resources);
 }
 
 QAudio::Error QPulseAudioOutput::error() const
@@ -391,8 +392,6 @@ bool QPulseAudioOutput::open()
 
 void QPulseAudioOutput::close()
 {
-    if (m_resources->isGranted())
-        m_resources->release();
     m_tickTimer->stop();
 
     if (m_stream) {
@@ -500,6 +499,7 @@ void QPulseAudioOutput::stop()
     m_deviceState = QAudio::StoppedState;
     m_wantedState = QAudio::StoppedState;
     close();
+    m_resources->release();
     emit stateChanged(m_deviceState);
 }
 
@@ -596,12 +596,16 @@ QAudioFormat QPulseAudioOutput::format() const
 
 void QPulseAudioOutput::suspend()
 {
+    m_wantedState = QAudio::SuspendedState;
+    m_resources->release();
+    internalSuspend();
+}
+
+void QPulseAudioOutput::internalSuspend()
+{
     if (m_deviceState == QAudio::ActiveState || m_deviceState == QAudio::IdleState) {
-        if (m_resources->isGranted())
-            m_resources->release();
         m_tickTimer->stop();
         m_deviceState = QAudio::SuspendedState;
-        m_wantedState = QAudio::SuspendedState;
         m_errorState = QAudio::NoError;
         emit stateChanged(m_deviceState);
 
@@ -731,10 +735,7 @@ void QPulseAudioOutput::handleResourcesLost()
     qDebug() << Q_FUNC_INFO << "Resources lost, current state " << m_deviceState << " wanted state " << m_wantedState;
     // If we lose resources, suspend
     if (m_deviceState != QAudio::StoppedState) {
-        suspend();
-
-        // And try acquire them again
-        m_resources->acquire();
+        internalSuspend();
     }
 }
 
@@ -743,7 +744,7 @@ void QPulseAudioOutput::handleResourcesDenied()
     qDebug() << Q_FUNC_INFO << "Resources denied, current state " << m_deviceState << " wanted state " << m_wantedState;
     // If we are denied resources, suspend
     if (m_deviceState != QAudio::StoppedState)
-        suspend();
+        internalSuspend();
 }
 
 

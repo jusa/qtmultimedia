@@ -110,6 +110,7 @@ private:
     bool open();
     void close();
     qint64 write(const char *data, qint64 len);
+    void internalSuspend();
 
 private Q_SLOTS:
     void userFeed();
