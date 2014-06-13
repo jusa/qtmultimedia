@@ -49,6 +49,8 @@
 #include "resourcepolicyimpl.h"
 
 #include <QMap>
+#include <QByteArray>
+#include <QString>
 
 static int clientid = 0;
 
@@ -60,7 +62,26 @@ ResourcePolicyInt::ResourcePolicyInt(QObject *parent)
     , m_available(false)
     , m_resourceSet(0)
 {
-    m_resourceSet = new ResourcePolicy::ResourceSet("player", this);
+    const char *resourceClass = "player";
+
+    QByteArray envVar = qgetenv("NEMO_RESOURCE_CLASS_OVERRIDE");
+    if (!envVar.isEmpty()) {
+        QString data(envVar);
+        // Only allow few resource classes
+        if (data == "navigator" ||
+            data == "call"      ||
+            data == "camera"    ||
+            data == "game"      ||
+            data == "player"    ||
+            data == "event")
+            resourceClass = envVar.constData();
+    }
+
+#ifdef RESOURCE_DEBUG
+    qDebug() << "##### Using resource class " << resourceClass;
+#endif
+
+    m_resourceSet = new ResourcePolicy::ResourceSet(resourceClass, this);
     m_resourceSet->setAlwaysReply();
 
     connect(m_resourceSet, SIGNAL(resourcesGranted(const QList<ResourcePolicy::ResourceType>)),
@@ -77,7 +98,7 @@ ResourcePolicyInt::ResourcePolicyInt(QObject *parent)
     connect(m_resourceSet, SIGNAL(resourcesBecameAvailable(const QList<ResourcePolicy::ResourceType>)),
             this, SLOT(handleResourcesBecameAvailable(const QList<ResourcePolicy::ResourceType>)));
 
-    ResourcePolicy::AudioResource *audioResource = new ResourcePolicy::AudioResource("player");
+    ResourcePolicy::AudioResource *audioResource = new ResourcePolicy::AudioResource(resourceClass);
 
     audioResource->setProcessID(QCoreApplication::applicationPid());
     audioResource->setStreamTag("media.name", "*");
