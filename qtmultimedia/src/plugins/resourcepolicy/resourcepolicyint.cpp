@@ -248,6 +248,7 @@ void ResourcePolicyInt::release(const ResourcePolicyImpl *client)
 #ifdef RESOURCE_DEBUG
             qDebug() << "##### " << i.value().id << ": RELEASE, acquired (" << m_acquired << ")";
 #endif
+            emit i.value().client->resourcesReleased();
         }
     }
 
