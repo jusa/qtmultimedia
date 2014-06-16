@@ -140,7 +140,7 @@ void ResourcePolicyInt::removeClient(ResourcePolicyImpl *client)
         m_clients.erase(i);
     }
 
-    if (m_acquired == 0) {
+    if (m_acquired == 0 && m_status != Initial) {
 #ifdef RESOURCE_DEBUG
         qDebug() << "##### Remove client, acquired = 0, release";
 #endif
