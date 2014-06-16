@@ -252,7 +252,7 @@ void ResourcePolicyInt::release(const ResourcePolicyImpl *client)
         }
     }
 
-    if (m_acquired == 0) {
+    if (m_acquired == 0 && m_status != Initial) {
 #ifdef RESOURCE_DEBUG
         qDebug() << "##### " << i.value().id << ": RELEASE call resourceSet->release()";
 #endif
