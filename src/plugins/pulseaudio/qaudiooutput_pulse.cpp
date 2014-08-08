@@ -691,8 +691,8 @@ qint64 OutputPrivate::writeData(const char *data, qint64 len)
 void QPulseAudioOutput::setVolume(qreal vol)
 {
     if (vol >= 0.0 && vol <= 1.0) {
+        m_customVolumeRequired = true;
         if (!qFuzzyCompare(m_volume, vol)) {
-            m_customVolumeRequired = true;
             m_volume = vol;
             if (m_opened) {
                 QPulseAudioEngine *pulseEngine = QPulseAudioEngine::instance();
