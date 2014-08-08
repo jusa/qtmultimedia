@@ -202,7 +202,7 @@ QAudio::Error QPulseAudioOutput::error() const
 
 QAudio::State QPulseAudioOutput::state() const
 {
-    return m_deviceState;
+    return m_wantedState;
 }
 
 void QPulseAudioOutput::streamUnderflowCallback()
