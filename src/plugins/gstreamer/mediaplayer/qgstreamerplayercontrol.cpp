@@ -127,7 +127,6 @@ QGstreamerPlayerControl::QGstreamerPlayerControl(QGstreamerPlayerSession *sessio
 
 QGstreamerPlayerControl::~QGstreamerPlayerControl()
 {
-    stopReleaseTimer();
     QMediaResourcePolicy::destroyResourceSet(m_resources);
 }
 
