@@ -111,6 +111,7 @@ private:
     void close();
     qint64 write(const char *data, qint64 len);
     void internalSuspend();
+    void internalResume();
 
     void restartReleaseTimer();
     void stopReleaseTimer();

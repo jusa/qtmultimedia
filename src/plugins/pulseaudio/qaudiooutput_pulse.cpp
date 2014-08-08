@@ -236,9 +236,15 @@ void QPulseAudioOutput::start(QIODevice *device)
     m_wantedState = QAudio::ActiveState;
     m_deviceState = QAudio::ActiveState;
 
+    if (!m_resources->isGranted())
+        m_resources->acquire();
+
     open();
 
     emit stateChanged(m_deviceState);
+
+    if (m_deviceState == QAudio::ActiveState && !m_resources->isGranted())
+        internalSuspend();
 }
 
 QIODevice *QPulseAudioOutput::start()
@@ -299,9 +305,6 @@ bool QPulseAudioOutput::open()
         qDebug() << "Channels: " << spec.channels;
         qDebug() << "Frame size: " << pa_frame_size(&spec);
 #endif
-
-    if (!m_resources->isGranted())
-        m_resources->acquire();
 
     QPulseAudioEngine *pulseEngine = QPulseAudioEngine::instance();
     pa_threaded_mainloop_lock(pulseEngine->mainloop());
@@ -553,7 +556,18 @@ void QPulseAudioOutput::resume()
 {
     if (m_deviceState == QAudio::SuspendedState) {
         stopReleaseTimer();
-        m_resources->acquire();
+
+        if (!m_resources->isGranted()) {
+            m_wantedState = QAudio::ActiveState;
+            m_resources->acquire();
+        } else
+            internalResume();
+    }
+}
+
+void QPulseAudioOutput::internalResume()
+{
+    if (m_deviceState == QAudio::SuspendedState) {
 
         m_resuming = true;
 
@@ -731,7 +745,7 @@ void QPulseAudioOutput::handleResourcesGranted()
     // If we were playing, but got suspended, restart
     if (m_deviceState == QAudio::SuspendedState &&
         m_wantedState == QAudio::ActiveState) {
-        resume();
+        internalResume();
     }
 }
 
